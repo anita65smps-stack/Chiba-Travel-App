@@ -518,8 +518,20 @@
         const { createApp, ref, computed, onMounted, nextTick, watch } = Vue; 
 
         // Global Firebase Configuration and Authentication Setup
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        // 🚨 這是您嵌入的 Firebase Config 🚨
+        const MANUAL_CONFIG_OBJECT = {
+          apiKey: "AIzaSyALhfxIv4MsLPxjfLeOYfyG2VfeD3XjFPI",
+          authDomain: "chiba-1981c.firebaseapp.com",
+          projectId: "chiba-1981c",
+          storageBucket: "chiba-1981c.firebasestorage.app",
+          messagingSenderId: "361035054636",
+          appId: "1:361035054636:web:2d682857fd8399dc651b89",
+          measurementId: "G-QZLJQ7Q2RQ"
+        };
+        // 🚨 嵌入結束 🚨
+
+        const appId = 'Chiba-Travel-App'; // 使用專案名稱作為公開 ID
+        const firebaseConfig = MANUAL_CONFIG_OBJECT || (typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null);
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         let db;
@@ -528,19 +540,23 @@
 
         const initializeFirebase = async () => {
             if (!firebaseConfig) {
-                console.error("Firebase config not found.");
-                return;
+                console.error("Firebase config not found. Please ensure MANUAL_CONFIG_OBJECT is set correctly.");
+                return { db: null, auth: null, userId: 'CONFIG_MISSING' };
             }
             const app = initializeApp(firebaseConfig);
             db = getFirestore(app);
             auth = getAuth(app);
             
             try {
-                if (initialAuthToken) {
+                // 修正：當使用手動配置 (Github Pages) 時，強制使用匿名登入，忽略 Canvas 環境 Token
+                if (MANUAL_CONFIG_OBJECT) {
+                     await signInAnonymously(auth);
+                } else if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
                     await signInAnonymously(auth);
                 }
+                
                 const userId = auth.currentUser?.uid || crypto.randomUUID();
                 console.log("Firebase Auth Successful. User ID:", userId);
                 
@@ -586,7 +602,7 @@
                 const isDataReady = ref(false);
                 const userId = ref('...');
 
-                // *** DATES ARRAY (Restored) ***
+                // *** DATES ARRAY ***
                 const dates = [
                     { date: '2025/12/18', weekday: '週四' },
                     { date: '2025/12/19', weekday: '週五' },
@@ -594,7 +610,6 @@
                     { date: '2025/12/21', weekday: '週日' },
                     { date: '2025/12/22', weekday: '週一' },
                 ];
-                // *** END DATES ARRAY ***
                 
                 // Data references (synced with Firestore)
                 const itinerary = ref([]);
@@ -602,7 +617,7 @@
                 const todoList = ref([]);
                 const shoppingList = ref([]);
                 
-                // Initial Default Data (used only on first load/empty Firestore)
+                // Initial Default Data
                 const getDefaultData = () => ({
                     itinerary: [
                         { id: 1, date: '2025/12/18', time: '02:30', location: '桃園第一航廈', type: '景點', url: '', note: '航班GK12，預訂代號：NSFJ3H', weather: 'sunny', temp: 20 },
@@ -678,7 +693,6 @@
                         if (docSnap.exists()) {
                             const data = docSnap.data();
                             // Apply cloud data to local state
-                            // Use JSON.parse(JSON.stringify()) to ensure proper reactivity update for nested data
                             itinerary.value = JSON.parse(JSON.stringify(data.itinerary || getDefaultData().itinerary));
                             expenses.value = JSON.parse(JSON.stringify(data.expenses || getDefaultData().expenses));
                             todoList.value = JSON.parse(JSON.stringify(data.todoList || getDefaultData().todoList));
@@ -736,8 +750,6 @@
                     const cityNameKey = locationName.split(' ')[0];
                     const cityConfig = CITY_MAP[cityNameKey] || CITY_MAP['千葉'];
                     
-                    if (weatherCache[cityNameKey]) return weatherCache[cityNameKey];
-                    
                     const tempRange = { min: cityConfig.min, max: cityConfig.max };
                     const conditions = ['sunny', 'cloudy', 'rain'];
                     
@@ -746,7 +758,6 @@
                         condition: conditions[Math.floor(Math.random() * conditions.length)]
                     };
                     
-                    weatherCache[cityNameKey] = result;
                     return result;
                 };
 
@@ -851,8 +862,9 @@
                     const itemToSave = { 
                         ...modalForm.value, 
                         date: dates[selectedDateIndex.value].date,
-                        weather: weatherData.condition,
-                        temp: weatherData.temp,
+                        // Remove weather and temp from the item to be saved/updated
+                        weather: itemToSave.weather,
+                        temp: itemToSave.temp,
                         transport: { method: '', cost: '', duration: '' } 
                     };
 
@@ -863,7 +875,9 @@
                         itemToSave.id = Date.now();
                         itinerary.value.push(itemToSave);
                     }
-                    await saveData();
+                    // We call updateAllWeather() here to refresh weather data for all items displayed after saving.
+                    updateAllWeather(); 
+                    saveData();
                     closeEditModal();
                 };
 
@@ -971,3 +985,5 @@
             }
         }).mount('#app');
     </script>
+</body>
+</html>
