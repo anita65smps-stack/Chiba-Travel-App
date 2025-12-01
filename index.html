@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>千葉之旅 Chiba Pro V7 (協作版)</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- SortableJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts (Noto Sans TC) -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #F8FAFC; 
+            -webkit-tap-highlight-color: transparent;
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .soft-shadow { box-shadow: 0 4px 20px rgba(148, 163, 184, 0.15); }
+        .glass-nav { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); }
+        .sortable-ghost { opacity: 0.4; background-color: #F1F5F9; }
+        .map-container iframe { width: 100%; height: 100%; border: 0; }
+        
+        /* Morandi Type Badges */
+        .type-food { background-color: #FDF9E5; color: #AD8A7C; }
+        .type-shop { background-color: #F0F4F7; color: #5B7A8D; }
+        .type-spot { background-color: #E6F3F7; color: #548C9E; }
+        .type-stay { background-color: #E2EFE7; color: #7B8D83; }
+
+        /* Morandi Accents */
+        .primary { background-color: #93B5C6; }
+        .primaryDark { color: #5B7A8D; }
+        
+        /* Member Badges - Adjusted to use Morandi hues */
+        .member-badge-Catty { background-color: #F0DCDC; color: #C97C7C; } 
+        .member-badge-Tony { background-color: #DDE2F0; color: #7C8BC9; } 
+        .member-badge-Tina { background-color: #F0E8D7; color: #C9A87C; }
+        .member-badge-Anita { background-color: #EAE6F0; color: #9A7CC9; }
+        
+        /* Small input for quantity */
+        .qty-input {
+            width: 3rem;
+            text-align: center;
+            padding: 0.2rem 0.1rem;
+            border-bottom: 1px solid #E5E7EB;
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#93B5C6', /* Dusty Blue */
+                        primaryDark: '#5B7A8D', /* Darker Dusty Blue */
+                        textMain: '#334155'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="text-textMain h-screen overflow-hidden flex flex-col bg-slate-50">
+
+    <div id="app" class="flex flex-col h-full relative max-w-md mx-auto w-full bg-white shadow-2xl overflow-hidden">
+        
+        <!-- Loading Screen (While Firebase Initializes) -->
+        <div v-if="!isDataReady" class="absolute inset-0 bg-white/90 backdrop-blur-sm z-[99] flex flex-col items-center justify-center">
+            <i class="fa-solid fa-spinner fa-spin-pulse text-primaryDark text-4xl mb-4"></i>
+            <p class="text-sm text-slate-600">正在同步雲端資料，請稍候...</p>
+            <p v-if="!isAuthReady" class="text-xs text-slate-400 mt-2">驗證身份中...</p>
+        </div>
+
+        <!-- Header -->
+        <header class="bg-white pt-10 pb-2 px-5 z-20 shrink-0 shadow-sm">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight text-slate-800">Chiba Trip <span class="text-primaryDark">v7</span></h1>
+                    <p class="text-xs text-slate-400 mt-0.5" v-if="selectedTab !== 'todo'">{{ currentDateDisplay }}</p>
+                </div>
+                <!-- Shopping Bag Button -->
+                <button @click="showShoppingModal = true" class="relative p-2 rounded-full bg-slate-50 hover:bg-slate-100 transition">
+                    <i class="fa-solid fa-bag-shopping text-xl text-slate-600"></i>
+                    <span v-if="shoppingList.filter(i=>!i.done).length > 0" class="absolute top-0 right-0 w-4 h-4 bg-red-400 text-white text-[10px] flex items-center justify-center rounded-full font-bold">
+                        {{ shoppingList.filter(i=>!i.done).length }}
+                    </span>
+                </button>
+            </div>
+            
+            <!-- Collaborative Info -->
+            <div class="text-[10px] text-slate-400 mb-2 flex justify-between items-center bg-slate-100/50 p-1.5 rounded-lg border border-slate-100">
+                <span class="font-mono text-primaryDark">App: {{ appId.substring(0, 8) }}...</span>
+                <span class="font-mono">User: {{ userId.substring(0, 8) }}...</span>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex overflow-x-auto hide-scrollbar space-x-3 pb-2 snap-x items-center">
+                <div @click="selectedTab = 'todo'" 
+                     class="snap-start shrink-0 flex flex-col items-center justify-center px-4 h-16 rounded-2xl transition-all border-2 cursor-pointer"
+                     :class="selectedTab === 'todo' ? 'bg-slate-800 border-slate-800 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-400'">
+                    <span class="text-xs font-medium">行前</span>
+                    <i class="fa-solid fa-clipboard-check mt-1"></i>
+                </div>
+                <div v-for="(day, index) in dates" :key="index" @click="selectDate(index)"
+                    class="snap-start shrink-0 flex flex-col items-center justify-center w-14 h-16 rounded-2xl transition-all border-2 cursor-pointer"
+                    :class="(selectedTab === 'schedule' && selectedDateIndex === index) ? 'bg-primary border-primary text-white shadow-lg transform scale-105' : 'bg-white border-slate-100 text-slate-400'">
+                    <span class="text-[10px] uppercase font-bold tracking-wider">{{ day.weekday }}</span>
+                    <span class="text-lg font-bold">{{ day.date.split('/')[2] }}</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto hide-scrollbar bg-slate-50 relative pb-28">
+
+            <!-- 1. 行前 TODO -->
+            <div v-if="selectedTab === 'todo'" class="p-5 space-y-4">
+                <div class="bg-white rounded-3xl p-6 soft-shadow">
+                    <h2 class="text-lg font-bold text-slate-700 mb-4 flex items-center">
+                        <i class="fa-solid fa-list-check text-primaryDark mr-2"></i> 行前準備
+                    </h2 >
+                    <div class="space-y-6">
+                        <div v-for="(item, idx) in todoList" :key="idx" class="group border-b border-slate-50 pb-4 last:border-0">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-slate-700 font-bold">{{ item.text }}</span>
+                                <button @click="removeTodo(idx)" class="text-slate-200 hover:text-red-400 transition"><i class="fa-solid fa-times"></i></button>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label v-for="member in members" :key="member" class="flex items-center space-x-2 cursor-pointer bg-slate-50 p-2 rounded-lg hover:bg-slate-100">
+                                    <input type="checkbox" v-model="item.status[member]" @change="saveData" class="w-4 h-4 rounded text-blue-500 border-slate-300">
+                                    <span class="text-xs text-slate-500" :class="{'line-through opacity-50': item.status[member]}">{{ member }}</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="flex items-center mt-2 bg-slate-50 rounded-xl px-3 py-2">
+                            <i class="fa-solid fa-plus text-slate-400 mr-2"></i>
+                            <input v-model="newTodoText" @keyup.enter="addTodo" placeholder="新增待辦事項..." class="flex-1 bg-transparent outline-none text-sm text-slate-600">
+                            <button @click="addTodo" class="text-primaryDark font-bold text-sm">新增</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. 行程表 -->
+            <div v-if="selectedTab === 'schedule'" class="p-5">
+                <div v-if="currentDayItinerary.length === 0" class="text-center py-12 text-slate-400">
+                    <div class="4xl mb-3">📅</div>
+                    <p>本日無行程，請點擊 + 新增</p>
+                </div>
+
+                <div ref="sortableList" class="space-y-0 relative pb-10">
+                    <div class="absolute left-[19px] top-4 bottom-0 w-0.5 bg-slate-200 -z-10"></div>
+
+                    <div v-for="(item, index) in currentDayItinerary" :key="item.id" :data-id="item.id" class="relative pl-10 mb-6 group cursor-grab active:cursor-grabbing">
+                        <!-- Time Dot -->
+                        <div class="absolute left-0 top-5 w-10 flex justify-center z-10">
+                            <div class="w-3 h-3 rounded-full border-2 border-white shadow-sm bg-primaryDark"></div>
+                        </div>
+
+                        <!-- Card -->
+                        <div class="bg-white rounded-2xl p-4 soft-shadow border border-slate-50 hover:border-primary transition relative overflow-hidden">
+                            <div class="absolute right-2 top-2 text-slate-200 p-2 cursor-grab active:cursor-grabbing">
+                                <i class="fa-solid fa-grip-lines"></i>
+                            </div>
+
+                            <div class="flex justify-between items-start mb-2 pr-6">
+                                <div class="flex items-center space-x-2">
+                                    <span class="font-bold text-primaryDark font-mono text-sm bg-primary/20 px-2 py-0.5 rounded-md">{{ item.time }}</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center" :class="getTypeClass(item.type)">
+                                        {{ getTypeIcon(item.type) }} {{ item.type }}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <h3 class="text-lg font-bold text-slate-800 mb-1 leading-snug flex items-center">
+                                <a v-if="item.url" :href="item.url" target="_blank" class="hover:text-primaryDark hover:underline flex items-center">
+                                    {{ item.location }} <i class="fa-solid fa-arrow-up-right-from-square text-[10px] ml-1.5 opacity-50"></i>
+                                </a>
+                                <span v-else>{{ item.location }}</span>
+                            </h3>
+                            
+                            <p v-if="item.note" class="text-sm text-slate-500 leading-relaxed whitespace-pre-line mb-2">{{ item.note }}</p>
+                            
+                            <!-- Actions -->
+                            <div class="flex justify-end space-x-3 mt-2 border-t border-slate-50 pt-2">
+                                <button @click.stop="editItem(item)" class="text-xs text-slate-400 hover:text-primaryDark font-medium"><i class="fa-regular fa-pen-to-square mr-1"></i>編輯</button>
+                                <button @click.stop="deleteItem(item.id)" class="text-xs text-slate-400 hover:text-red-400 font-medium"><i class="fa-regular fa-trash-can mr-1"></i>刪除</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. 地圖 -->
+            <div v-if="selectedTab === 'map'" class="h-full flex flex-col relative">
+                <div class="h-3/5 w-full bg-slate-200 relative map-container">
+                    <!-- 嵌入 Google Maps 清單 - Dynamic Multi-point Search -->
+                    <iframe :src="currentMapUrl" loading="lazy" allowfullscreen></iframe>
+                    
+                    <div class="absolute bottom-4 right-4">
+                         <button @click="locateMe" class="w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-slate-600 hover:text-primaryDark">
+                            <i class="fa-solid fa-crosshairs"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex-1 bg-white rounded-t-3xl shadow-[0_-5px_20px_rgba(0,0,0,0.1)] overflow-hidden flex flex-col -mt-5 relative z-10">
+                    <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-white">
+                        <h3 class="font-bold text-slate-700">今日路線與釘選點</h3>
+                        <a href="https://maps.app.goo.gl/xMjXvbGtCYEqxWPKA" target="_blank" class="text-xs text-white bg-primaryDark px-3 py-1.5 rounded-lg hover:bg-primary transition shadow-lg shadow-blue-200/50 font-bold">
+                            <i class="fa-solid fa-map-location-dot mr-1"></i>開啟清單
+                        </a>
+                    </div>
+                    
+                    <div class="overflow-y-auto p-4 space-y-2 pb-20">
+                        <div v-if="currentDayItinerary.length === 0" class="text-center text-slate-400 text-sm py-4">本日無行程，地圖僅顯示預設區域。</div>
+                        <div v-for="(item, idx) in currentDayItinerary" :key="idx" 
+                             @click="updateMapLocation(item.location)"
+                             class="flex items-center p-3 rounded-xl border border-slate-100 hover:border-primary/50 hover:bg-slate-50 transition cursor-pointer group"
+                             :class="{'bg-primary/20 border-primary': currentMapLocation === item.location}">
+                            <span class="w-6 h-6 rounded-full bg-slate-200 text-slate-500 text-xs flex items-center justify-center mr-3 font-mono shrink-0 group-hover:bg-primaryDark group-hover:text-white">{{ idx + 1 }}</span>
+                            <div class="flex-1">
+                                <div class="font-medium text-slate-700">{{ item.location }}</div>
+                                <div class="text-[10px] text-slate-400 flex items-center gap-2">
+                                    <span :class="getTypeClass(item.type)" class="px-1 rounded-full text-[10px] font-bold">{{ item.type }}</span>
+                                </div>
+                            </div>
+                            <a :href="'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(item.location)" target="_blank" class="text-primaryDark hover:text-primary p-2 rounded-full hover:bg-slate-100">
+                                <i class="fa-solid fa-location-arrow"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. 錢包 -->
+            <div v-if="selectedTab === 'wallet'" class="p-5 pb-32 space-y-6">
+                <!-- 總覽卡片 -->
+                <div class="bg-gradient-to-br from-primaryDark to-slate-600 rounded-3xl p-5 text-white shadow-lg shadow-primary/50 relative overflow-hidden">
+                    <div class="absolute -right-10 -top-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+                    <div class="flex justify-between items-start mb-2 relative z-10">
+                        <h3 class="font-bold text-lg">旅費總覽 (NT$)</h3>
+                        <div class="text-[10px] bg-white/20 px-2 py-1 rounded backdrop-blur-sm flex items-center">
+                            Visa 匯率: {{ exchangeRate.toFixed(4) }}
+                        </div>
+                    </div>
+                    <div class="flex items-baseline space-x-1 relative z-10">
+                        <span class="text-3xl font-bold tracking-tight">${{ totalExpenseTWD.toLocaleString() }}</span>
+                    </div>
+                </div>
+
+                <!-- 分人統計 -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div v-for="m in members" :key="m" class="bg-white p-3 rounded-2xl soft-shadow border border-slate-50">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-bold px-2 py-0.5 rounded-md" :class="'member-badge-'+m">{{ m }}</span>
+                            <span class="text-[10px] text-slate-400">已支付總金額</span>
+                        </div>
+                        <div class="text-lg font-bold text-slate-700">
+                            NT${{ getMemberTotal(m).toLocaleString() }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 每日明細 -->
+                <div class="space-y-4">
+                    <div v-for="(group, dateStr) in expenseGroups" :key="dateStr" class="bg-white rounded-2xl soft-shadow overflow-hidden">
+                        <div class="bg-slate-50 px-4 py-3 border-b border-slate-100 flex justify-between items-center">
+                            <span class="font-bold text-slate-600 text-sm">{{ dateStr }}</span>
+                            <span class="text-xs font-mono font-bold text-slate-400">小計: NT$ {{ Math.round(group.totalTWD).toLocaleString() }}</span>
+                        </div>
+                        <div class="divide-y divide-slate-50">
+                            <div v-for="(exp, idx) in group.items" :key="idx" class="p-4 hover:bg-slate-50 transition group/item">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <div class="text-slate-700 font-medium text-sm">{{ exp.title }}</div>
+                                        <div class="flex items-center space-x-2 mt-1">
+                                            <span class="text-[10px] px-1.5 py-0.5 rounded font-bold" :class="'member-badge-'+exp.payer">{{ exp.payer }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <div class="text-right mr-3">
+                                            <div class="font-mono font-bold text-slate-700">
+                                                {{ exp.currency === 'JPY' ? '¥' : 'NT$' }}{{ parseInt(exp.amount).toLocaleString() }}
+                                            </div>
+                                            <div v-if="exp.currency === 'JPY'" class="text-[10px] text-slate-400">
+                                                ≈ NT${{ Math.round(exp.amount * exchangeRate).toLocaleString() }}
+                                            </div>
+                                        </div>
+                                        <button @click="deleteExpense(exp.id)" class="w-6 h-6 rounded-full bg-red-50 text-red-400 flex items-center justify-center opacity-0 group-hover/item:opacity-100 transition">
+                                            <i class="fa-solid fa-times text-xs"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- FAB -->
+        <button v-if="selectedTab !== 'todo' && selectedTab !== 'map'" @click="openAddModal" class="absolute bottom-24 right-5 w-14 h-14 bg-primaryDark text-white rounded-full shadow-lg shadow-primary/50 flex items-center justify-center text-xl hover:scale-110 active:scale-95 transition z-30">
+            <i class="fa-solid fa-plus"></i>
+        </button>
+
+        <!-- Nav -->
+        <nav class="glass-nav absolute bottom-0 w-full pb-6 pt-3 px-6 shadow-md border-t border-white/50 flex justify-around items-center z-40 rounded-t-3xl">
+            <button @click="selectedTab = 'schedule'" :class="selectedTab === 'schedule' ? 'text-primaryDark' : 'text-slate-300'" class="flex flex-col items-center w-16 transition">
+                <i class="fa-solid fa-route text-xl mb-1"></i>
+                <span class="text-[10px] font-bold">行程</span>
+            </button>
+            <button @click="selectedTab = 'map'" :class="selectedTab === 'map' ? 'text-primaryDark' : 'text-slate-300'" class="flex flex-col items-center w-16 transition">
+                <i class="fa-solid fa-map text-xl mb-1"></i>
+                <span class="text-[10px] font-bold">導航</span>
+            </button>
+            <button @click="selectedTab = 'wallet'" :class="selectedTab === 'wallet' ? 'text-primaryDark' : 'text-slate-300'" class="flex flex-col items-center w-16 transition">
+                <i class="fa-solid fa-wallet text-xl mb-1"></i>
+                <span class="text-[10px] font-bold">記帳</span>
+            </button>
+        </nav>
+
+        <!-- Modals -->
+        
+        <!-- Shopping Modal -->
+        <div v-if="showShoppingModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4" @click.self="showShoppingModal = false">
+            <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl transform transition-all animate-slide-up h-[85vh] flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-slate-700">購物清單 🛍️</h3>
+                    <button @click="showShoppingModal = false" class="bg-slate-100 w-8 h-8 rounded-full text-slate-500"><i class="fa-solid fa-times"></i></button>
+                </div>
+                
+                <!-- Filter Tabs -->
+                <div class="flex overflow-x-auto hide-scrollbar space-x-2 pb-2 mb-4 shrink-0 border-b border-slate-100">
+                    <button @click="shoppingFilterOwner = ''"
+                            :class="shoppingFilterOwner === '' ? 'bg-primaryDark text-white' : 'bg-slate-100 text-slate-500 hover:bg-primary/20'"
+                            class="shrink-0 text-xs font-bold px-3 py-1.5 rounded-xl transition">全部 ({{ shoppingList.length }})</button>
+                    <button v-for="m in members" :key="m"
+                            @click="shoppingFilterOwner = m"
+                            :class="shoppingFilterOwner === m ? 'bg-primaryDark text-white' : 'bg-slate-100 text-slate-500 hover:bg-primary/20'"
+                            class="shrink-0 text-xs font-bold px-3 py-1.5 rounded-xl transition">
+                            {{ m }} ({{ shoppingList.filter(i => i.owner === m).length }})
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto hide-scrollbar space-y-4 mb-4">
+                    <!-- New Item Form -->
+                    <div class="bg-blue-50 p-3 rounded-xl border border-blue-100 space-y-2">
+                        <div class="flex space-x-2">
+                            <input v-model="newShoppingItem.text" @keyup.enter="addShoppingItem" placeholder="品項名稱" class="flex-1 bg-white rounded-lg px-3 py-2 outline-none text-sm">
+                            <input v-model.number="newShoppingItem.price" type="number" placeholder="¥ 單價" class="w-20 bg-white rounded-lg px-2 py-2 outline-none text-sm">
+                        </div>
+                        <div class="flex space-x-2">
+                             <select v-model="newShoppingItem.owner" class="bg-white rounded-lg px-2 py-2 outline-none text-xs w-20 text-slate-600">
+                                <option v-for="m in members" :value="m">{{ m }}</option>
+                            </select>
+                            <input v-model="newShoppingItem.url" placeholder="地點連結 (Google Map)" class="flex-1 bg-white rounded-lg px-3 py-2 outline-none text-xs">
+                        </div>
+                        <div class="flex space-x-2 justify-end">
+                            <button @click="addShoppingItem" class="bg-primaryDark text-white px-4 rounded-lg text-xs font-bold shadow-lg shadow-primary/50">新增</button>
+                        </div>
+                    </div>
+
+                    <!-- List -->
+                    <div v-for="(item, idx) in filteredShoppingList" :key="idx" class="flex flex-col p-3 bg-slate-50 rounded-xl border border-slate-100 relative overflow-hidden">
+                        <div class="flex items-start justify-between mb-1 relative z-10">
+                            <div class="flex items-center flex-1">
+                                <input type="checkbox" v-model="item.done" @change="saveData" class="w-5 h-5 text-blue-500 rounded border-slate-300 focus:ring-blue-500">
+                                <div class="ml-3 flex-1">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="font-medium text-slate-700" :class="{'line-through text-slate-400': item.done}">{{ item.text }}</span>
+                                        <span v-if="item.owner" class="text-[10px] px-1.5 py-0.5 rounded font-bold" :class="'member-badge-'+item.owner">{{ item.owner }}</span>
+                                    </div>
+                                    <div class="flex items-center mt-1 space-x-3">
+                                        <a v-if="item.url" :href="item.url" target="_blank" class="text-xs text-blue-400 hover:underline"><i class="fa-solid fa-location-dot"></i> 地點</a>
+                                    </div>
+                                </div>
+                            </div>
+                            <button @click="removeShoppingItem(idx)" class="text-slate-300 hover:text-red-400"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                        <div class="flex items-center ml-8 text-xs text-slate-400 relative z-10">
+                            <span class="mr-2">數量:</span>
+                            <input type="number" v-model.number="item.quantity" @input="saveData" min="1" class="bg-transparent qty-input border-slate-200 outline-none mx-1 text-slate-600 focus:border-primaryDark">
+                            <span class="ml-4">單價: ¥{{ (item.price || 0).toLocaleString() }}</span>
+                            <span v-if="item.price && item.quantity > 0" class="text-primaryDark font-bold ml-2">總計: NT$ {{ Math.round(item.price * item.quantity * exchangeRate).toLocaleString() }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Total Display -->
+                <div class="mt-auto pt-4 border-t border-slate-200 sticky bottom-0 bg-white z-20 rounded-b-3xl -mx-6 px-6">
+                    <div class="flex justify-between items-center font-bold text-lg text-slate-700">
+                        <span>當前總金額 (已篩選)</span>
+                        <div class="text-right">
+                            <span class="block text-primaryDark">¥ {{ currentFilteredShoppingTotalJPY.toLocaleString() }}</span>
+                            <span class="block text-sm text-slate-500">≈ NT$ {{ currentFilteredShoppingTotalTWD }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add/Edit Modal -->
+        <div v-if="showEditModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="closeEditModal">
+            
+            <!-- Schedule Edit -->
+            <div v-if="selectedTab === 'schedule'" class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto hide-scrollbar">
+                <h3 class="text-lg font-bold text-slate-700 mb-4">{{ modalForm.id ? '編輯行程' : '新增行程' }}</h3>
+                <div class="space-y-4 text-sm">
+                    <!-- Type Selection -->
+                    <div class="grid grid-cols-4 gap-2">
+                        <button v-for="t in ['食物', '購物', '景點', '住宿']" :key="t" 
+                            @click="modalForm.type = t"
+                            class="py-2 rounded-xl text-xs font-bold border transition"
+                            :class="modalForm.type === t ? 'bg-primaryDark text-white border-primaryDark' : 'bg-white text-slate-400 border-slate-200'">
+                            {{ t }}
+                        </button>
+                    </div>
+
+                    <div class="flex space-x-3">
+                        <div class="flex-1">
+                            <label class="text-xs text-slate-400 ml-1">時間</label>
+                            <input type="time" v-model="modalForm.time" class="w-full bg-slate-50 rounded-xl px-4 py-3 outline-none text-slate-700 font-mono">
+                        </div>
+                        <!-- Weather Input (Used for API Query fallback) -->
+                        <div class="flex-1">
+                            <label class="text-xs text-slate-400 ml-1">天氣 (模擬)</label>
+                            <select v-model="modalForm.weather" class="w-full bg-slate-50 rounded-xl px-3 py-3 outline-none text-slate-700">
+                                <option value="sunny">晴 ☀️</option>
+                                <option value="cloudy">陰 ☁️</option>
+                                <option value="rain">雨 🌧️</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="text-xs text-slate-400 ml-1">地點名稱</label>
+                        <input type="text" v-model="modalForm.location" class="w-full bg-slate-50 rounded-xl px-4 py-3 outline-none text-slate-700 font-bold" placeholder="例如: 築地市場">
+                    </div>
+
+                    <div>
+                        <label class="text-xs text-slate-400 ml-1">Google Map 網址</label>
+                        <input type="text" v-model="modalForm.url" class="w-full bg-slate-50 rounded-xl px-4 py-3 outline-none text-blue-500 text-xs" placeholder="https://maps.app.goo.gl/...">
+                    </div>
+
+                    <div>
+                        <label class="text-xs text-slate-400 ml-1">備註</label>
+                        <textarea v-model="modalForm.note" class="w-full bg-slate-50 rounded-xl px-4 py-3 outline-none text-slate-700 h-16 resize-none"></textarea>
+                    </div>
+                    
+                    <!-- Transport (簡化為導航按鈕) -->
+                    <div class="bg-primary/20 p-4 rounded-xl border border-primary relative">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-xs font-bold text-primaryDark"><i class="fa-solid fa-route mr-1"></i>交通導航</label>
+                            <button @click="openGoogleMapsRoute" class="text-[10px] bg-white text-primaryDark border border-primary px-2 py-1 rounded-full shadow-sm hover:bg-slate-100 transition flex items-center font-bold">
+                                <i class="fa-solid fa-location-arrow mr-1"></i> 立即導航
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-600">點擊「立即導航」將開啟 Google Maps App，以您的**目前位置**為起點。</p>
+                    </div>
+                </div>
+                <button @click="saveItineraryItem" class="w-full bg-primaryDark text-white rounded-xl py-3 mt-6 font-bold shadow-lg shadow-primary/50">儲存</button>
+            </div>
+
+            <!-- Expense Edit -->
+            <div v-if="selectedTab === 'wallet'" class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto hide-scrollbar">
+                <h3 class="text-lg font-bold text-slate-700 mb-4">記上一筆 💸</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-xs text-slate-400 ml-1 mb-1 block">誰付錢？</label>
+                        <div class="grid grid-cols-4 gap-2">
+                            <label v-for="m in members" :key="m" class="cursor-pointer text-center">
+                                <input type="radio" v-model="expenseForm.payer" :value="m" class="hidden peer">
+                                <div class="py-2 rounded-lg text-xs font-bold text-slate-500 bg-slate-100 peer-checked:bg-primaryDark peer-checked:text-white transition">{{ m }}</div>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="flex bg-slate-100 p-1 rounded-xl">
+                        <label class="flex-1 cursor-pointer text-center">
+                            <input type="radio" v-model="expenseForm.currency" value="JPY" class="hidden peer">
+                            <div class="py-2 rounded-lg text-sm font-bold text-slate-500 peer-checked:bg-primary peer-checked:text-white transition">日幣 (JPY)</div>
+                        </label>
+                        <label class="flex-1 cursor-pointer text-center">
+                            <input type="radio" v-model="expenseForm.currency" value="TWD" class="hidden peer">
+                            <div class="py-2 rounded-lg text-sm font-bold text-slate-500 peer-checked:bg-primary peer-checked:text-white transition">台幣 (TWD)</div>
+                        </label>
+                    </div>
+                    <div class="relative">
+                        <span class="absolute left-4 top-3 text-slate-400 font-bold">{{ expenseForm.currency === 'JPY' ? '¥' : '$' }}</span>
+                        <input type="number" v-model="expenseForm.amount" placeholder="金額" class="w-full bg-slate-50 rounded-xl pl-8 pr-4 py-3 outline-none text-xl font-bold text-slate-700 border border-slate-100 focus:border-primaryDark">
+                    </div>
+                    <input type="text" v-model="expenseForm.title" placeholder="項目" class="w-full bg-slate-50 rounded-xl px-4 py-3 outline-none text-slate-700 border border-slate-100 focus:border-primaryDark">
+                    <div>
+                        <label class="text-xs text-slate-400 ml-1">日期</label>
+                        <select v-model="expenseForm.date" class="w-full bg-slate-50 rounded-xl px-4 py-3 outline-none text-slate-700 border border-slate-100 focus:border-primaryDark">
+                            <option v-for="d in dates" :value="d.date">{{ d.date }} ({{ d.weekday }})</option>
+                        </select>
+                    </div>
+                </div>
+                <button @click="saveExpense" class="w-full bg-primaryDark text-white rounded-xl py-3 mt-6 font-bold shadow-lg shadow-primary/50">新增紀錄</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, runTransaction, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // 修正後的 Vue 解構
+        const { createApp, ref, computed, onMounted, nextTick, watch } = Vue; 
+
+        // Global Firebase Configuration and Authentication Setup
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db;
+        let auth;
+        let tripDocRef;
+
+        const initializeFirebase = async () => {
+            if (!firebaseConfig) {
+                console.error("Firebase config not found.");
+                return;
+            }
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                const userId = auth.currentUser?.uid || crypto.randomUUID();
+                console.log("Firebase Auth Successful. User ID:", userId);
+                
+                // Use a public path for collaborative data
+                tripDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', 'chiba_trip_data');
+
+                return { db, auth, userId };
+            } catch (error) {
+                console.error("Firebase Auth Failed:", error);
+                // Fallback userId if auth fails
+                return { db, auth, userId: 'anon-' + crypto.randomUUID().substring(0, 8) };
+            }
+        };
+
+        createApp({
+            setup() {
+                // --- Configuration & Constants ---
+                const members = ['Catty', 'Tony', 'Tina', 'Anita'];
+                const CITY_MAP = {
+                    '桃園': { name: 'Taoyuan, TW', min: 18, max: 25 },
+                    '成田': { name: 'Narita, JP', min: 5, max: 13 },
+                    '千葉': { name: 'Chiba, JP', min: 5, max: 13 },
+                    '築地': { name: 'Tokyo, JP', min: 5, max: 13 },
+                    '東京': { name: 'Tokyo, JP', min: 5, max: 13 },
+                    '佐原': { name: 'Katori, JP', min: 4, max: 12 },
+                    '酒酒井': { name: 'Shisui, JP', min: 5, max: 13 },
+                    'Richmond': { name: 'Narita, JP', min: 5, max: 13 },
+                    'Hotel': { name: 'Chiba, JP', min: 5, max: 13 }
+                };
+                const weatherCache = {};
+                
+                // --- Reactive State ---
+                const selectedTab = ref('schedule');
+                const selectedDateIndex = ref(0);
+                const showShoppingModal = ref(false);
+                const showEditModal = ref(false);
+                const exchangeRate = ref(0.218); 
+                const currentMapLocation = ref('');
+                const shoppingFilterOwner = ref(''); 
+                
+                // Firebase/Data Status
+                const isAuthReady = ref(false);
+                const isDataReady = ref(false);
+                const userId = ref('...');
+
+                // *** DATES ARRAY (Restored) ***
+                const dates = [
+                    { date: '2025/12/18', weekday: '週四' },
+                    { date: '2025/12/19', weekday: '週五' },
+                    { date: '2025/12/20', weekday: '週六' },
+                    { date: '2025/12/21', weekday: '週日' },
+                    { date: '2025/12/22', weekday: '週一' },
+                ];
+                // *** END DATES ARRAY ***
+                
+                // Data references (synced with Firestore)
+                const itinerary = ref([]);
+                const expenses = ref([]);
+                const todoList = ref([]);
+                const shoppingList = ref([]);
+                
+                // Initial Default Data (used only on first load/empty Firestore)
+                const getDefaultData = () => ({
+                    itinerary: [
+                        { id: 1, date: '2025/12/18', time: '02:30', location: '桃園第一航廈', type: '景點', url: '', note: '航班GK12，預訂代號：NSFJ3H', weather: 'sunny', temp: 20 },
+                        { id: 2, date: '2025/12/18', time: '06:35', location: '成田第三航廈', type: '景點', url: '', note: '降落，出關後洗漱化妝換裝。紀念章在T1 5F/JR服務處', weather: 'cloudy', temp: 8 },
+                        { id: 3, date: '2025/12/18', time: '08:04', location: 'JR千葉站', type: '景點', url: '', note: '至第二航廈搭成田線7:25或8:04。', weather: 'sunny', temp: 10 },
+                        { id: 4, date: '2025/12/18', time: '09:00', location: 'Hotel Shuranza CHIBA', type: '住宿', url: '', note: '走900公尺寄放行李。', weather: 'sunny', temp: 11 },
+                        { id: 5, date: '2025/12/18', time: '10:00', location: '客多美咖啡', type: '食物', url: '', note: '早餐。', weather: 'sunny', temp: 12 },
+                        { id: 6, date: '2025/12/18', time: '14:00', location: '千葉站週邊購物', type: '購物', url: '', note: 'UQ、GU、MUJI、3COINS、WEGO⋯', weather: 'sunny', temp: 13 },
+                        { id: 7, date: '2025/12/18', time: '18:00', location: '千葉港之塔', type: '景點', url: '', note: '看燈光秀(一年一次，需確認)。', weather: 'cloudy', temp: 9 },
+                        { id: 8, date: '2025/12/18', time: '20:00', location: '唐吉軻德', type: '購物', url: '', note: '24小時？', weather: 'cloudy', temp: 8 },
+                        
+                        { id: 9, date: '2025/12/19', time: '08:30', location: '築地場外市場', type: '食物', url: '', note: '6:00~14:00。建議9-14點前往，多數現金。勿邊走邊吃！', weather: 'rain', temp: 7 },
+                        { id: 10, date: '2025/12/19', time: '14:00', location: '外苑銀杏並木', type: '景點', url: '', note: '可看楓葉+銀杏。', weather: 'sunny', temp: 13 },
+                        { id: 11, date: '2025/12/19', time: '17:00', location: '東京 City Walk', type: '景點', url: '', note: '串聯銀座、新橋等地觀光。', weather: 'sunny', temp: 12 },
+                        { id: 12, date: '2025/12/19', time: '19:00', location: '歡大戶之壽喜燒 (日本橋 いちり)', type: '食物', url: 'https://maps.app.goo.gl/wJmYfT3nL927L3gG9', note: '晚餐：黒毛和牛とお出汁 日本橋 いちり', weather: 'cloudy', temp: 10 },
+                        { id: 13, date: '2025/12/19', time: '21:00', location: 'JR千葉站', type: '景點', url: '', note: '從新日本橋/馬喰町搭JR總武線快速回千葉。', weather: 'cloudy', temp: 9 },
+                        
+                        { id: 14, date: '2025/12/20', time: '08:00', location: '檢查行李/退房', type: '景點', url: '', note: '檢查有無超重，提早決定加購重量。', weather: 'sunny', temp: 8 },
+                        { id: 15, date: '2025/12/20', time: '09:35', location: 'Richmond Hotel Narita', type: '住宿', url: '', note: '千葉->成田站 (08:51) $510。成田站廣場有音樂鐘。', weather: 'sunny', temp: 11 },
+                        { id: 16, date: '2025/12/20', time: '12:00', location: '成田表參道 (午餐)', type: '食物', url: '', note: '散步至表參道順便吃午餐。', weather: 'sunny', temp: 13 },
+                        { id: 17, date: '2025/12/20', time: '14:00', location: '成田山新勝寺', type: '景點', url: '', note: '', weather: 'cloudy', temp: 12 },
+                        { id: 18, date: '2025/12/20', time: '16:00', location: '成勝寺公園', type: '景點', url: '', note: '', weather: 'cloudy', temp: 11 },
+                        { id: 19, date: '2025/12/20', time: '19:00', location: '燒肉晚餐', type: '食物', url: '', note: '成田站周邊。', weather: 'cloudy', temp: 10 },
+                        
+                        { id: 20, date: '2025/12/21', time: '09:30', location: '佐原站', type: '景點', url: '', note: '成田站->佐原站 $510。租借單車 (¥500/700)。', weather: 'sunny', temp: 9 },
+                        { id: 21, date: '2025/12/21', time: '10:00', location: '小野川遊船', type: '景點', url: '', note: '10:00-15:30，¥1300/人。', weather: 'sunny', temp: 11 },
+                        { id: 22, date: '2025/12/21', time: '11:00', location: '樋橋/伊能忠敬故居', type: '景點', url: '', note: '樋橋整點流水。故居免費。', weather: 'sunny', temp: 12 },
+                        { id: 23, date: '2025/12/21', time: '12:30', location: '小堀屋本店', type: '食物', url: '', note: '午餐：黑切蕎麥麵 (¥900)。', weather: 'rain', temp: 10 },
+                        { id: 24, date: '2025/12/21', time: '15:30', location: '香取神宮總社', type: '景點', url: '', note: '2600年前聖域。建議單程計程車（約 ¥1,500）或單車。', weather: 'cloudy', temp: 11 },
+                        { id: 25, date: '2025/12/21', time: '17:00', location: '遲步庵', type: '食物', url: '', note: '烤麻糬紅豆湯。', weather: 'cloudy', temp: 10 },
+                        { id: 26, date: '2025/12/21', time: '20:00', location: '成田站', type: '景點', url: '', note: '返回成田。', weather: 'cloudy', temp: 8 },
+
+                        { id: 27, date: '2025/12/22', time: '09:00', location: 'Richmond Hotel 退房', type: '住宿', url: '', note: '飯店早餐/退房。', weather: 'cloudy', temp: 7 },
+                        { id: 28, date: '2025/12/22', time: '10:00', location: '成田機場 T1', type: '景點', url: '', note: '搭 JR 成田線/總武線。先在機場寄放樂桃行李。', weather: 'cloudy', temp: 9 },
+                        { id: 29, date: '2025/12/22', time: '11:00', location: '酒酒井 Outlet', type: '購物', url: '', note: '轉接駁車至 Outlet。', weather: 'sunny', temp: 11 },
+                        { id: 30, date: '2025/12/22', time: '18:00', location: '成田機場 T1 (晚餐/梳洗)', type: '食物', url: '', note: '搭接駁車回機場，晚餐/漱洗卸妝，更換舒適衣鞋。', weather: 'cloudy', temp: 8 },
+                        { id: 31, date: '2025/12/22', time: '20:00', location: '樂桃櫃檯報到', type: '景點', url: '', note: '航班MM627，預訂代號：W9FBFU。', weather: 'cloudy', temp: 7 },
+                        { id: 32, date: '2025/12/22', time: '22:05', location: '桃園第一航廈', type: '景點', url: '', note: '預計 01:25 抵達 TPE', weather: 'cloudy', temp: 6 },
+                    ],
+                    expenses: [
+                        { id: 1, date: '2025/12/18', title: 'Suica 儲值', amount: 5000, currency: 'JPY', category: '交通', payer: 'Catty' },
+                        { id: 2, date: '2025/12/18', title: '客多美早餐', amount: 1200, currency: 'JPY', category: '食物', payer: 'Tony' },
+                    ],
+                    todoList: [
+                        { text: '購買旅遊保險', status: { Catty: false, Tony: false, Tina: false, Anita: false } },
+                        { text: '開通漫遊/買網卡', status: { Catty: false, Tony: false, Tina: false, Anita: false } },
+                        { text: '填寫 Visit Japan Web', status: { Catty: false, Tony: false, Tina: false, Anita: false } },
+                        { text: '東薰酒造預約', status: { Catty: false, Tony: false, Tina: false, Anita: false } },
+                    ],
+                    shoppingList: [
+                        { text: 'UQ 發熱衣', done: false, price: 1290, owner: 'Catty', url: '', quantity: 1 }, 
+                        { text: '合利他命', done: false, price: 5500, owner: 'Tony', url: '', quantity: 1 },
+                        { text: '唐吉軻德零食', done: false, price: 3000, owner: 'Tina', url: '', quantity: 2 },
+                    ],
+                    exchangeRate: 0.218
+                });
+                
+                // Form/Input States
+                const newTodoText = ref('');
+                const newShoppingItem = ref({ text: '', price: '', owner: members[0], url: '', quantity: 1 });
+                const modalForm = ref({ id: null, time: '', location: '', type: '景點', url: '', note: '', weather: 'sunny', temp: 10 }); 
+                const expenseForm = ref({ date: dates[0].date, amount: '', title: '', currency: 'JPY', payer: members[0] });
+                
+                const myLocation = ref(null);
+                const sortableList = ref(null);
+
+                // --- Firebase Handlers ---
+
+                const startRealtimeListener = () => {
+                    if (!tripDocRef) return;
+
+                    onSnapshot(tripDocRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            const data = docSnap.data();
+                            // Apply cloud data to local state
+                            // Use JSON.parse(JSON.stringify()) to ensure proper reactivity update for nested data
+                            itinerary.value = JSON.parse(JSON.stringify(data.itinerary || getDefaultData().itinerary));
+                            expenses.value = JSON.parse(JSON.stringify(data.expenses || getDefaultData().expenses));
+                            todoList.value = JSON.parse(JSON.stringify(data.todoList || getDefaultData().todoList));
+                            shoppingList.value = JSON.parse(JSON.stringify(data.shoppingList || getDefaultData().shoppingList));
+                            exchangeRate.value = data.exchangeRate || 0.218;
+                            console.log("Realtime data updated from Firestore.");
+                        } else {
+                            console.log("No data found, initializing with default data.");
+                            // If document doesn't exist, create it with default data
+                            runTransaction(db, async (transaction) => {
+                                const freshDoc = await transaction.get(tripDocRef);
+                                if (!freshDoc.exists()) {
+                                    const initialData = getDefaultData();
+                                    transaction.set(tripDocRef, { ...initialData, createdAt: serverTimestamp() });
+                                    // Set initial local state from default
+                                    itinerary.value = initialData.itinerary;
+                                    expenses.value = initialData.expenses;
+                                    todoList.value = initialData.todoList;
+                                    shoppingList.value = initialData.shoppingList;
+                                    exchangeRate.value = initialData.exchangeRate;
+                                }
+                            });
+                        }
+                        isDataReady.value = true;
+                    }, (error) => {
+                        console.error("Error listening to Firestore:", error);
+                        isDataReady.value = true; 
+                    });
+                };
+
+                const saveData = async () => {
+                    if (!tripDocRef || !isAuthReady.value) {
+                        console.warn("Attempted to save data before Firebase was ready.");
+                        return;
+                    }
+                    try {
+                        const dataToSave = {
+                            itinerary: itinerary.value,
+                            expenses: expenses.value,
+                            todoList: todoList.value,
+                            shoppingList: shoppingList.value,
+                            exchangeRate: exchangeRate.value,
+                            updatedAt: serverTimestamp()
+                        };
+                        await setDoc(tripDocRef, dataToSave);
+                    } catch (error) {
+                        console.error("Error saving data to Firestore:", error);
+                    }
+                };
+                
+                // --- Utility Functions ---
+
+                const fetchWeatherForLocation = async (locationName) => {
+                    // Mock Weather Data
+                    const cityNameKey = locationName.split(' ')[0];
+                    const cityConfig = CITY_MAP[cityNameKey] || CITY_MAP['千葉'];
+                    
+                    if (weatherCache[cityNameKey]) return weatherCache[cityNameKey];
+                    
+                    const tempRange = { min: cityConfig.min, max: cityConfig.max };
+                    const conditions = ['sunny', 'cloudy', 'rain'];
+                    
+                    const result = {
+                        temp: Math.floor(Math.random() * (tempRange.max - tempRange.min + 1)) + tempRange.min, 
+                        condition: conditions[Math.floor(Math.random() * conditions.length)]
+                    };
+                    
+                    weatherCache[cityNameKey] = result;
+                    return result;
+                };
+
+                // --- Computed Properties ---
+                const currentDateDisplay = computed(() => dates[selectedDateIndex.value].date);
+                const currentDayItinerary = computed(() => {
+                    const d = dates[selectedDateIndex.value].date;
+                    return itinerary.value.filter(i => i.date === d).sort((a,b) => a.time.localeCompare(b.time));
+                });
+
+                const filteredShoppingList = computed(() => {
+                    if (!shoppingFilterOwner.value) {
+                        return shoppingList.value;
+                    }
+                    return shoppingList.value.filter(item => item.owner === shoppingFilterOwner.value);
+                });
+                
+                const currentFilteredShoppingTotalJPY = computed(() => {
+                    return filteredShoppingList.value.reduce((sum, item) => {
+                        const price = parseFloat(item.price) || 0;
+                        const quantity = parseInt(item.quantity) || 0;
+                        return sum + (price * quantity);
+                    }, 0);
+                });
+
+                const currentFilteredShoppingTotalTWD = computed(() => {
+                    return Math.round(currentFilteredShoppingTotalJPY.value * exchangeRate.value).toLocaleString();
+                });
+                
+                const currentMapUrl = computed(() => {
+                    const locations = currentDayItinerary.value.map(item => item.location).join('+and+');
+                    if (locations.length > 0) {
+                        return `https://maps.google.com/maps?q=${encodeURIComponent(locations)}&t=&z=11&ie=UTF8&iwloc=&output=embed`;
+                    }
+                    return `https://www.google.com/maps/d/embed?mid=1P71Wk_k8Y7a2tX9q0s-x6w?hl=zh-TW`;
+                });
+
+                const expenseGroups = computed(() => {
+                    const groups = {};
+                    expenses.value.forEach(exp => {
+                        if (!groups[exp.date]) groups[exp.date] = { items: [], totalTWD: 0 };
+                        groups[exp.date].items.push(exp);
+                        const amountInTWD = exp.currency === 'JPY' ? (exp.amount * exchangeRate.value) : parseInt(exp.amount);
+                        groups[exp.date].totalTWD += amountInTWD;
+                    });
+                    return groups;
+                });
+                const totalExpenseTWD = computed(() => {
+                    return expenses.value.reduce((sum, item) => {
+                        return sum + (item.currency === 'JPY' ? (item.amount * exchangeRate.value) : parseInt(item.amount));
+                    }, 0).toFixed(0);
+                });
+
+                const getMemberTotal = (member) => {
+                    return expenses.value
+                        .filter(e => e.payer === member)
+                        .reduce((sum, item) => {
+                            return sum + (item.currency === 'JPY' ? (item.amount * exchangeRate.value) : parseInt(item.amount));
+                        }, 0).toFixed(0);
+                };
+
+                // --- Action Methods ---
+
+                const openGoogleMapsRoute = () => {
+                    const destination = modalForm.value.location;
+                    if (!destination) {
+                        alert("請先輸入地點名稱作為終點");
+                        return;
+                    }
+
+                    const url = `https://www.google.com/maps/dir/?api=1&origin=Current+Location&destination=${encodeURIComponent(destination)}&travelmode=transit`;
+                    window.open(url, '_blank');
+                };
+
+                const selectDate = (idx) => {
+                    selectedTab.value = 'schedule';
+                    selectedDateIndex.value = idx;
+                    currentMapLocation.value = '';
+                    nextTick(() => initSortable());
+                };
+
+                const openAddModal = () => {
+                    if (selectedTab.value === 'schedule') {
+                        modalForm.value = { id: null, time: '10:00', location: '', type: '景點', url: '', note: '', weather: 'sunny', temp: 10 };
+                    } else if (selectedTab.value === 'wallet') {
+                        expenseForm.value = { date: dates[selectedDateIndex.value].date, amount: '', title: '', currency: 'JPY', payer: members[0] };
+                    }
+                    showEditModal.value = true;
+                };
+
+                const closeEditModal = () => showEditModal.value = false;
+                const editItem = (item) => {
+                    modalForm.value = JSON.parse(JSON.stringify(item));
+                    if (typeof modalForm.value.weather === 'undefined') modalForm.value.weather = 'sunny';
+                    if (typeof modalForm.value.temp === 'undefined') modalForm.value.temp = 10;
+                    showEditModal.value = true;
+                };
+                
+                const saveItineraryItem = async () => {
+                    const weatherData = await fetchWeatherForLocation(modalForm.value.location);
+                    
+                    const itemToSave = { 
+                        ...modalForm.value, 
+                        date: dates[selectedDateIndex.value].date,
+                        weather: weatherData.condition,
+                        temp: weatherData.temp,
+                        transport: { method: '', cost: '', duration: '' } 
+                    };
+
+                    if (itemToSave.id) {
+                        const idx = itinerary.value.findIndex(i => i.id === itemToSave.id);
+                        if (idx !== -1) itinerary.value[idx] = itemToSave;
+                    } else {
+                        itemToSave.id = Date.now();
+                        itinerary.value.push(itemToSave);
+                    }
+                    await saveData();
+                    closeEditModal();
+                };
+
+                const deleteItem = (id) => {
+                    if(confirm('刪除此行程？')) {
+                        itinerary.value = itinerary.value.filter(i => i.id !== id);
+                        saveData();
+                    }
+                };
+                const updateMapLocation = (loc) => currentMapLocation.value = loc;
+                const saveExpense = () => {
+                    if(!expenseForm.value.amount || !expenseForm.value.title) return;
+                    expenses.value.unshift({ id: Date.now(), ...expenseForm.value });
+                    saveData();
+                    closeEditModal();
+                };
+                const deleteExpense = (id) => {
+                    if(confirm('刪除此紀錄？')) expenses.value = expenses.value.filter(e => e.id !== id);
+                    saveData();
+                };
+                
+                const addTodo = () => {
+                    if(newTodoText.value) {
+                        todoList.value.push({ text: newTodoText.value, status: createStatus() });
+                        newTodoText.value = '';
+                        saveData();
+                    }
+                };
+                const removeTodo = (i) => { todoList.value.splice(i, 1); saveData(); };
+                
+                const addShoppingItem = () => {
+                    if(newShoppingItem.value.text) {
+                        newShoppingItem.value.quantity = parseInt(newShoppingItem.value.quantity) || 1;
+                        shoppingList.value.push({ ...newShoppingItem.value, done: false });
+                        newShoppingItem.value = { text: '', price: '', owner: members[0], url: '', quantity: 1 }; // Reset
+                        saveData();
+                    }
+                };
+                const removeShoppingItem = (i) => { 
+                    const itemToRemove = filteredShoppingList.value[i];
+                    const globalIndex = shoppingList.value.findIndex(item => item.text === itemToRemove.text && item.owner === itemToRemove.owner && item.price === itemToRemove.price && item.quantity === itemToRemove.quantity);
+                    if (globalIndex !== -1) {
+                         shoppingList.value.splice(globalIndex, 1);
+                         saveData();
+                    }
+                };
+
+                // --- Utility Getters & Display ---
+
+                const getWeatherIcon = (w) => {
+                    const map = { 
+                        sunny: 'fa-solid fa-sun text-yellow-500', 
+                        cloudy: 'fa-solid fa-cloud text-slate-400', 
+                        rain: 'fa-solid fa-cloud-showers-heavy text-primaryDark' 
+                    };
+                    return map[w] || map.sunny;
+                };
+                
+                const getTypeIcon = (t) => {
+                    const map = { '食物': '🍜', '購物': '🛍️', '景點': '📷', '住宿': '🏨' };
+                    return map[t] || '📍';
+                };
+                const getTypeClass = (t) => {
+                    const map = { '食物': 'type-food', '購物': 'type-shop', '景點': 'type-spot', '住宿': 'type-stay' };
+                    return map[t] || 'bg-slate-100 text-slate-500';
+                };
+                const locateMe = () => {
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition((pos) => {
+                            currentMapLocation.value = `${pos.coords.latitude},${pos.coords.longitude}`;
+                            alert(`已定位`);
+                        });
+                    }
+                };
+
+                // --- Initialization ---
+                const initSortable = () => {
+                    if (sortableList.value) new Sortable(sortableList.value, { animation: 150, handle: '.cursor-grab', ghostClass: 'sortable-ghost' });
+                };
+
+                onMounted(async () => { 
+                    const firebaseData = await initializeFirebase();
+                    userId.value = firebaseData.userId;
+                    isAuthReady.value = true;
+                    
+                    // Start real-time listener only after successful auth
+                    startRealtimeListener(); 
+                    
+                    nextTick(() => initSortable()); 
+                });
+                watch(selectedTab, () => { if(selectedTab.value === 'schedule') nextTick(() => initSortable()); });
+
+                return {
+                    members, selectedTab, selectedDateIndex, dates, itinerary, expenses, todoList, shoppingList,
+                    newTodoText, newShoppingItem, modalForm, expenseForm, showShoppingModal, showEditModal, exchangeRate,
+                    currentDateDisplay, currentDayItinerary, expenseGroups, totalExpenseTWD, currentMapLocation, currentMapUrl,
+                    shoppingFilterOwner, filteredShoppingList, currentFilteredShoppingTotalJPY, currentFilteredShoppingTotalTWD,
+                    selectDate, openAddModal, closeEditModal, editItem, saveItineraryItem, deleteItem,
+                    saveExpense, deleteExpense, addTodo, removeTodo, addShoppingItem, removeShoppingItem,
+                    getWeatherIcon, getTypeIcon, getTypeClass, locateMe, updateMapLocation, 
+                    openGoogleMapsRoute, getMemberTotal,
+                    // Firebase/App data for display
+                    isAuthReady, isDataReady, userId, appId 
+                };
+            }
+        }).mount('#app');
+    </script>
