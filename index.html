@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>千葉之旅 Chiba Pro V13 (支付與導航優化版)</title>
+    <title>千葉之旅 Chiba Pro V21 (莫蘭迪純淨版)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -21,6 +21,7 @@
             font-family: 'Noto Sans TC', sans-serif;
             background-color: #F8FAFC; 
             -webkit-tap-highlight-color: transparent;
+            color: #475569;
         }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -28,33 +29,36 @@
         .glass-nav { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); border-top: 1px solid #E2E8F0; }
         .map-container iframe { width: 100%; height: 100%; border: 0; }
         
-        /* Morandi Type Badges */
-        .type-food { background-color: #FDF9E5; color: #AD8A7C; }
-        .type-shop { background-color: #F0F4F7; color: #5B7A8D; }
-        .type-spot { background-color: #E6F3F7; color: #548C9E; }
-        .type-stay { background-color: #E2EFE7; color: #7B8D83; }
+        /* --- STRICT MORANDI PALETTE (No Purple) --- */
+        /* Logic: Background L~93%, S~15% | Text L~40%, S~20% */
 
-        /* Morandi Accents */
-        .primary { background-color: #93B5C6; }
-        .primaryDark { color: #5B7A8D; }
+        /* Type Badges */
+        .type-food { background-color: #F4EEE3; color: #8C755E; } /* Dusty Brown */
+        .type-shop { background-color: #E3F0F4; color: #5E7C8C; } /* Dusty Sky */
+        .type-spot { background-color: #E3F4F4; color: #5E8C8C; } /* Dusty Teal */
+        .type-stay { background-color: #E6F4E3; color: #668C5E; } /* Dusty Green */
+
+        /* UI Accents */
+        .primary { background-color: #93B5C6; } /* Dusty Blue */
+        .primaryDark { color: #5B7A8D; } /* Darker Dusty Blue */
         
-        /* Member Badges - Updated Anita to Orange */
-        .member-badge-Catty { background-color: #F0DCDC; color: #C97C7C; } 
-        .member-badge-Tony { background-color: #DDE2F0; color: #7C8BC9; } 
-        .member-badge-Tina { background-color: #F0E8D7; color: #C9A87C; }
-        .member-badge-Anita { background-color: #FEEBC8; color: #DD6B20; } 
+        /* Member Badges */
+        .member-badge-Catty { background-color: #F4E3E3; color: #8C5E5E; } /* Dusty Rose */
+        .member-badge-Tony { background-color: #E3E9F4; color: #5E6C8C; } /* Foggy Blue */
+        .member-badge-Tina { background-color: #F4F1E3; color: #8C865E; } /* Linen Beige */
+        .member-badge-Anita { background-color: #F4E8E3; color: #8C665E; } /* Clay Apricot */
         
-        /* Payment Badges */
-        .pay-cash { background-color: #E2E8F0; color: #64748B; }
-        .pay-card { background-color: #E0E7FF; color: #6366F1; }
-        .pay-epay { background-color: #DCFCE7; color: #16A34A; }
+        /* Payment Badges - STRICTLY NO PURPLE */
+        .pay-cash { background-color: #F0F0F0; color: #707070; } /* Warm Gray */
+        .pay-card { background-color: #DDE9F2; color: #5A6E85; } /* Dusty Slate Blue (Replaces Purple) */
+        .pay-epay { background-color: #E3F4E6; color: #5E8C66; } /* Dusty Sage */
 
         /* Small input for quantity */
         .qty-input {
             width: 3rem;
             text-align: center;
             padding: 0.1rem;
-            border-bottom: 1px solid #E5E7EB;
+            border-bottom: 1px solid #CBD5E1;
             background: transparent;
         }
         
@@ -78,8 +82,8 @@
             theme: {
                 extend: {
                     colors: {
-                        primary: '#93B5C6', /* Dusty Blue */
-                        primaryDark: '#5B7A8D', /* Darker Dusty Blue */
+                        primary: '#93B5C6', 
+                        primaryDark: '#5B7A8D', 
                         textMain: '#334155'
                     }
                 }
@@ -101,7 +105,7 @@
         <header class="bg-white pt-10 pb-2 px-5 z-20 shrink-0 shadow-sm">
             <div class="flex justify-between items-center mb-4">
                 <div>
-                    <h1 class="text-2xl font-bold tracking-tight text-slate-800">Chiba Trip <span class="text-primaryDark">v13</span></h1>
+                    <h1 class="text-2xl font-bold tracking-tight text-slate-800">Chiba Trip <span class="text-primaryDark">v21</span></h1>
                     <p class="text-xs text-slate-400 mt-0.5" v-if="selectedTab !== 'todo'">{{ currentDateDisplay }}</p>
                 </div>
             </div>
@@ -116,13 +120,13 @@
             <div class="flex overflow-x-auto hide-scrollbar space-x-3 pb-2 snap-x items-center">
                 <div @click="selectedTab = 'todo'" 
                      class="snap-start shrink-0 flex flex-col items-center justify-center px-4 h-16 rounded-2xl transition-all border-2 cursor-pointer"
-                     :class="selectedTab === 'todo' ? 'bg-slate-800 border-slate-800 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-400'">
+                     :class="selectedTab === 'todo' ? 'bg-slate-600 border-slate-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-400'">
                     <span class="text-xs font-medium">行前</span>
                     <i class="fa-solid fa-clipboard-check mt-1"></i>
                 </div>
                 <div v-for="(day, index) in dates" :key="index" @click="selectDate(index)"
                     class="snap-start shrink-0 flex flex-col items-center justify-center w-14 h-16 rounded-2xl transition-all border-2 cursor-pointer"
-                    :class="(selectedTab === 'schedule' && selectedDateIndex === index) ? 'bg-primary border-primary text-white shadow-lg transform scale-105' : 'bg-white border-slate-100 text-slate-400'">
+                    :class="(selectedTab === 'schedule' && selectedDateIndex === index) ? 'bg-primary border-primary text-white shadow-lg transform scale-105' : 'bg-white border-slate-200 text-slate-400'">
                     <span class="text-[10px] uppercase font-bold tracking-wider">{{ day.weekday }}</span>
                     <span class="text-lg font-bold">{{ day.date.split('/')[2] }}</span>
                 </div>
@@ -146,7 +150,7 @@
                             </div>
                             <div class="grid grid-cols-2 gap-2">
                                 <label v-for="member in members" :key="member" class="flex items-center space-x-2 cursor-pointer bg-slate-50 p-2 rounded-lg hover:bg-slate-100">
-                                    <input type="checkbox" v-model="item.status[member]" @change="saveData" class="w-4 h-4 rounded text-blue-500 border-slate-300">
+                                    <input type="checkbox" v-model="item.status[member]" @change="saveData" class="w-4 h-4 rounded text-slate-500 border-slate-300 accent-slate-500">
                                     <span class="text-xs text-slate-500" :class="{'line-through opacity-50': item.status[member]}">{{ member }}</span>
                                 </label>
                             </div>
@@ -252,10 +256,10 @@
                 </div>
             </div>
 
-            <!-- 4. 購物清單 (已移至底部選項) -->
-            <div v-if="selectedTab === 'shopping'" class="p-5 pb-32 space-y-4">
-                <!-- Filter Tabs -->
-                <div class="bg-white rounded-2xl p-2 soft-shadow sticky top-0 z-10">
+            <!-- 4. 購物清單 -->
+            <div v-if="selectedTab === 'shopping'" class="flex flex-col h-full relative">
+                <!-- 1. Filter Tabs (Sticky Top) -->
+                <div class="bg-white p-2 soft-shadow sticky top-0 z-30 shrink-0 border-b border-slate-100">
                     <div class="flex overflow-x-auto hide-scrollbar space-x-2">
                         <button @click="shoppingFilterOwner = ''"
                                 :class="shoppingFilterOwner === '' ? 'bg-primaryDark text-white' : 'bg-slate-100 text-slate-500 hover:bg-primary/20'"
@@ -269,73 +273,79 @@
                     </div>
                 </div>
 
-                <!-- List -->
-                <div class="space-y-3">
-                    <div v-for="(item, idx) in filteredShoppingList" :key="idx" class="flex flex-col p-3 bg-white rounded-2xl soft-shadow border border-slate-50 relative overflow-hidden">
-                        <div class="flex items-start justify-between mb-1 relative z-10">
-                            <div class="flex items-center flex-1">
-                                <input type="checkbox" v-model="item.done" @change="saveData" class="w-5 h-5 text-blue-500 rounded border-slate-300 focus:ring-blue-500">
-                                <div class="ml-3 flex-1">
-                                    <div class="flex items-center space-x-2">
-                                        <span class="font-medium text-slate-700" :class="{'line-through text-slate-400': item.done}">{{ item.text }}</span>
+                <!-- 2. Scrollable Area (Form + List) -->
+                <div class="flex-1 overflow-y-auto hide-scrollbar p-5 pb-32">
+                    
+                    <!-- Add/Edit Form (Normal Flow) -->
+                    <div class="bg-blue-50 p-3 rounded-2xl border border-blue-100 space-y-2 mb-4 shadow-sm">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs font-bold text-primaryDark">{{ editingShoppingId ? '編輯項目' : '新增項目' }}</span>
+                            <button v-if="editingShoppingId" @click="cancelShoppingEdit" class="text-xs text-slate-400 hover:text-slate-600">取消</button>
+                        </div>
+                        <!-- 第一排：名稱 -->
+                        <div>
+                            <input v-model="newShoppingItem.text" placeholder="品項名稱" class="w-full bg-white rounded-lg px-3 py-2 outline-none text-sm">
+                        </div>
+                        <!-- 第二排：人名 / 單價 / 數量 -->
+                        <div class="flex space-x-2">
+                            <select v-model="newShoppingItem.owner" class="bg-white rounded-lg px-2 py-2 outline-none text-xs flex-1 text-slate-600 min-w-0">
+                                <option v-for="m in members" :value="m">{{ m }}</option>
+                            </select>
+                            <input v-model.number="newShoppingItem.price" type="number" placeholder="¥ 單價" class="bg-white rounded-lg px-2 py-2 outline-none text-sm flex-1 min-w-0">
+                            <input v-model.number="newShoppingItem.quantity" type="number" placeholder="數量" class="bg-white rounded-lg px-2 py-2 outline-none text-sm w-16 text-center">
+                        </div>
+                        <!-- 第三排：連結 -->
+                        <div>
+                            <input v-model="newShoppingItem.url" placeholder="商品連結 (URL)" class="w-full bg-white rounded-lg px-3 py-2 outline-none text-xs">
+                        </div>
+                        <div class="flex justify-end">
+                            <button @click="addOrUpdateShoppingItem" class="bg-primaryDark text-white px-4 py-2 rounded-lg text-xs font-bold shadow-lg shadow-primary/50 w-full">
+                                {{ editingShoppingId ? '更新' : '新增' }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- List Items -->
+                    <div class="space-y-3">
+                        <transition-group name="list">
+                            <div v-for="(item, idx) in filteredShoppingList" :key="item.id || idx" class="flex flex-col p-3 bg-white rounded-2xl soft-shadow border border-slate-50 relative overflow-hidden">
+                                <div class="flex items-start justify-between mb-1 relative z-10">
+                                    <div class="flex items-center flex-1">
+                                        <input type="checkbox" v-model="item.done" @change="saveData" class="w-5 h-5 text-blue-500 rounded border-slate-300 focus:ring-blue-500 cursor-pointer">
+                                        <div class="ml-3 flex-1">
+                                            <div class="flex items-center space-x-2">
+                                                <span class="font-medium text-slate-700" :class="{'line-through text-slate-400': item.done}">{{ item.text }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button @click="editShoppingItem(item)" class="text-slate-400 hover:text-primaryDark"><i class="fa-solid fa-pen"></i></button>
+                                        <button @click="removeShoppingItem(item)" class="text-slate-300 hover:text-red-400"><i class="fa-solid fa-trash-can"></i></button>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="flex space-x-2">
-                                <button @click="editShoppingItem(item)" class="text-slate-400 hover:text-primaryDark"><i class="fa-solid fa-pen"></i></button>
-                                <button @click="removeShoppingItem(item)" class="text-slate-300 hover:text-red-400"><i class="fa-solid fa-trash-can"></i></button>
-                            </div>
-                        </div>
-                        <!-- Layout: Owner | Price | Qty -->
-                        <div class="flex items-center ml-8 text-xs text-slate-500 relative z-10 gap-3 mt-1">
-                            <span v-if="item.owner" class="text-[10px] px-1.5 py-0.5 rounded font-bold" :class="'member-badge-'+item.owner">{{ item.owner }}</span>
-                            
-                            <span class="flex items-center">
-                                ¥ {{ (item.price || 0).toLocaleString() }}
-                            </span>
-                            
-                            <span class="flex items-center">
-                                x <input type="number" v-model.number="item.quantity" @input="saveData" min="1" class="w-8 text-center bg-transparent border-b border-slate-200 outline-none mx-1 focus:border-primaryDark">
-                            </span>
+                                <!-- Layout: Owner | Price | Qty -->
+                                <div class="flex items-center ml-8 text-xs text-slate-500 relative z-10 gap-3 mt-1">
+                                    <span v-if="item.owner" class="text-[10px] px-1.5 py-0.5 rounded font-bold" :class="'member-badge-'+item.owner">{{ item.owner }}</span>
+                                    
+                                    <span class="flex items-center">
+                                        ¥ {{ (item.price || 0).toLocaleString() }}
+                                    </span>
+                                    
+                                    <span class="flex items-center">
+                                        x <input type="number" v-model.number="item.quantity" @input="saveData" min="1" class="w-8 text-center bg-transparent border-b border-slate-200 outline-none mx-1 focus:border-primaryDark">
+                                    </span>
 
-                             <a v-if="item.url" :href="item.url" target="_blank" class="text-blue-400 hover:underline flex items-center ml-auto">
-                                <i class="fa-solid fa-link mr-1"></i> 商品連結
-                            </a>
-                        </div>
+                                    <a v-if="item.url" :href="item.url" target="_blank" class="text-blue-400 hover:underline flex items-center ml-auto">
+                                        <i class="fa-solid fa-link mr-1"></i> 商品連結
+                                    </a>
+                                </div>
+                            </div>
+                        </transition-group>
                     </div>
                 </div>
                 
-                <!-- Add/Edit Shopping Item Form -->
-                <div class="bg-blue-50 p-3 rounded-2xl border border-blue-100 space-y-2 mt-4">
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="text-xs font-bold text-primaryDark">{{ editingShoppingId ? '編輯項目' : '新增項目' }}</span>
-                        <button v-if="editingShoppingId" @click="cancelShoppingEdit" class="text-xs text-slate-400 hover:text-slate-600">取消</button>
-                    </div>
-                    <!-- 第一排：名稱 -->
-                    <div>
-                        <input v-model="newShoppingItem.text" placeholder="品項名稱" class="w-full bg-white rounded-lg px-3 py-2 outline-none text-sm">
-                    </div>
-                    <!-- 第二排：人名 / 單價 / 數量 -->
-                    <div class="flex space-x-2">
-                         <select v-model="newShoppingItem.owner" class="bg-white rounded-lg px-2 py-2 outline-none text-xs flex-1 text-slate-600 min-w-0">
-                            <option v-for="m in members" :value="m">{{ m }}</option>
-                        </select>
-                        <input v-model.number="newShoppingItem.price" type="number" placeholder="¥ 單價" class="bg-white rounded-lg px-2 py-2 outline-none text-sm flex-1 min-w-0">
-                        <input v-model.number="newShoppingItem.quantity" type="number" placeholder="數量" class="bg-white rounded-lg px-2 py-2 outline-none text-sm w-16 text-center">
-                    </div>
-                    <!-- 第三排：連結 -->
-                    <div>
-                        <input v-model="newShoppingItem.url" placeholder="商品連結 (URL)" class="w-full bg-white rounded-lg px-3 py-2 outline-none text-xs">
-                    </div>
-                    <div class="flex justify-end">
-                        <button @click="addOrUpdateShoppingItem" class="bg-primaryDark text-white px-4 py-2 rounded-lg text-xs font-bold shadow-lg shadow-primary/50 w-full">
-                            {{ editingShoppingId ? '更新' : '新增' }}
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Total Display -->
-                <div class="mt-2 pt-2 border-t border-slate-200 sticky bottom-20 bg-F8FAFC z-10 pb-2">
+                <!-- 3. Fixed Total (Pinned to Bottom above Nav) -->
+                <div class="absolute bottom-0 left-0 right-0 bg-white/95 border-t border-slate-200 p-4 z-40 backdrop-blur-md shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
                     <div class="flex justify-between items-center font-bold text-sm text-slate-700">
                         <span>總計 ({{ shoppingFilterOwner || '全部' }})</span>
                         <div class="text-right">
@@ -354,16 +364,30 @@
                     <div class="flex justify-between items-start mb-2 relative z-10">
                         <h3 class="font-bold text-lg">旅費總覽 (NT$)</h3>
                         <div class="text-[10px] bg-white/20 px-2 py-1 rounded backdrop-blur-sm flex items-center">
-                            Visa 預估匯率: {{ exchangeRate.toFixed(4) }}
+                            預估匯率: {{ exchangeRate.toFixed(4) }}
                             <span class="ml-2 text-[8px] opacity-75">更新於: {{ exchangeRateDate || '今日' }}</span>
                         </div>
                     </div>
                     <div class="flex items-baseline space-x-1 relative z-10">
-                        <span class="text-3xl font-bold tracking-tight">${{ totalExpenseTWD.toLocaleString() }}</span>
+                        <span class="text-3xl font-bold tracking-tight">${{ filteredExpenseTotalTWD.toLocaleString() }}</span>
+                    </div>
+                    
+                    <!-- NEW: Date Filter -->
+                    <div class="mt-4 flex gap-2 overflow-x-auto hide-scrollbar relative z-10">
+                         <button @click="expenseFilterDate = ''" 
+                                 :class="expenseFilterDate === '' ? 'bg-white text-primaryDark' : 'bg-white/20 text-white hover:bg-white/30'"
+                                 class="px-3 py-1 rounded-full text-xs font-bold transition shrink-0">
+                             全部
+                         </button>
+                         <button v-for="d in dates" :key="d.date" @click="expenseFilterDate = d.date"
+                                 :class="expenseFilterDate === d.date ? 'bg-white text-primaryDark' : 'bg-white/20 text-white hover:bg-white/30'"
+                                 class="px-3 py-1 rounded-full text-xs font-bold transition shrink-0">
+                             {{ d.date.split('/')[2] }}日
+                         </button>
                     </div>
                 </div>
 
-                <!-- 分人統計 -->
+                <!-- 分人統計 (Shows filtered stats if filter active, else all) -->
                 <div class="grid grid-cols-2 gap-3">
                     <div v-for="m in members" :key="m" class="bg-white p-3 rounded-2xl soft-shadow border border-slate-50">
                         <div class="flex items-center justify-between mb-1">
@@ -378,7 +402,7 @@
 
                 <!-- 每日明細 (Editable) -->
                 <div class="space-y-4">
-                    <div v-for="(group, dateStr) in expenseGroups" :key="dateStr" class="bg-white rounded-2xl soft-shadow overflow-hidden">
+                    <div v-for="(group, dateStr) in filteredExpenseGroups" :key="dateStr" class="bg-white rounded-2xl soft-shadow overflow-hidden">
                         <div class="bg-slate-50 px-4 py-3 border-b border-slate-100 flex justify-between items-center">
                             <span class="font-bold text-slate-600 text-sm">{{ dateStr }}</span>
                             <span class="text-xs font-mono font-bold text-slate-400">小計: NT$ {{ Math.round(group.totalTWD).toLocaleString() }}</span>
@@ -415,6 +439,9 @@
                             </div>
                         </div>
                     </div>
+                    <div v-if="Object.keys(filteredExpenseGroups).length === 0" class="text-center text-slate-400 text-sm py-4">
+                        沒有符合條件的記帳紀錄
+                    </div>
                 </div>
             </div>
         </main>
@@ -425,7 +452,7 @@
         </button>
 
         <!-- Nav -->
-        <nav class="glass-nav absolute bottom-0 w-full pb-6 pt-3 px-6 shadow-md flex justify-between items-center z-40 rounded-t-3xl">
+        <nav class="glass-nav absolute bottom-0 w-full pb-6 pt-3 px-6 shadow-md flex justify-between items-center z-50 rounded-t-3xl">
             <button @click="selectedTab = 'schedule'" :class="selectedTab === 'schedule' ? 'text-primaryDark' : 'text-slate-300'" class="flex flex-col items-center w-12 transition">
                 <i class="fa-solid fa-route text-xl mb-1"></i>
                 <span class="text-[10px] font-bold">行程</span>
@@ -572,6 +599,7 @@
         };
         // 🚨 嵌入結束 🚨
 
+        const EXCHANGE_API_KEY = 'da94a2508c3cd2c1d8730ab0b573f463';
         const appId = 'Chiba-Travel-App'; 
         const firebaseConfig = MANUAL_CONFIG_OBJECT || (typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null);
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
@@ -610,6 +638,7 @@
                 const currentMapLocation = ref('');
                 const shoppingFilterOwner = ref(''); 
                 const editingShoppingId = ref(null); 
+                const expenseFilterDate = ref(''); // New filter state
                 
                 const isAuthReady = ref(false);
                 const isDataReady = ref(false);
@@ -701,11 +730,19 @@
                      const today = new Date().toLocaleDateString('zh-TW');
                      if (exchangeRateDate.value === today) return; 
                      try {
-                         const res = await fetchWithBackoff('https://api.exchangerate-api.com/v4/latest/JPY');
-                         if (res?.rates?.TWD) {
-                             exchangeRate.value = res.rates.TWD * 1.015;
+                         const url = `https://v6.exchangerate-api.com/v6/${EXCHANGE_API_KEY}/latest/JPY`;
+                         const res = await fetchWithBackoff(url);
+                         if (res?.conversion_rates?.TWD) {
+                             exchangeRate.value = res.conversion_rates.TWD * 1.015;
                              exchangeRateDate.value = today;
                              saveData(); 
+                         } else {
+                            const fallbackRes = await fetchWithBackoff('https://api.exchangerate-api.com/v4/latest/JPY');
+                             if (fallbackRes?.rates?.TWD) {
+                                 exchangeRate.value = fallbackRes.rates.TWD * 1.015;
+                                 exchangeRateDate.value = today;
+                                 saveData(); 
+                             }
                          }
                      } catch (e) { console.error('Auto-update rate failed', e); }
                 };
@@ -718,8 +755,9 @@
                 });
 
                 const filteredShoppingList = computed(() => {
-                    if (!shoppingFilterOwner.value) return shoppingList.value;
-                    return shoppingList.value.filter(item => item.owner === shoppingFilterOwner.value);
+                    const sorted = [...shoppingList.value].sort((a, b) => Number(a.done) - Number(b.done));
+                    if (!shoppingFilterOwner.value) return sorted;
+                    return sorted.filter(item => item.owner === shoppingFilterOwner.value);
                 });
                 
                 const currentFilteredShoppingTotalJPY = computed(() => {
@@ -736,9 +774,15 @@
                     return `https://www.google.com/maps/d/embed?mid=1P71Wk_k8Y7a2tX9q0s-x6w?hl=zh-TW`;
                 });
 
-                const expenseGroups = computed(() => {
+                // New Computed for Filtered Expenses
+                const filteredExpensesList = computed(() => {
+                    if (!expenseFilterDate.value) return expenses.value;
+                    return expenses.value.filter(e => e.date === expenseFilterDate.value);
+                });
+
+                const filteredExpenseGroups = computed(() => {
                     const groups = {};
-                    expenses.value.forEach(exp => {
+                    filteredExpensesList.value.forEach(exp => {
                         if (!groups[exp.date]) groups[exp.date] = { items: [], totalTWD: 0 };
                         groups[exp.date].items.push(exp);
                         const amt = exp.currency === 'JPY' ? (exp.amount * exchangeRate.value) : parseInt(exp.amount);
@@ -746,14 +790,16 @@
                     });
                     return groups;
                 });
-                const totalExpenseTWD = computed(() => {
-                    return expenses.value.reduce((sum, item) => {
+
+                const filteredExpenseTotalTWD = computed(() => {
+                    return filteredExpensesList.value.reduce((sum, item) => {
                         return sum + (item.currency === 'JPY' ? (item.amount * exchangeRate.value) : parseInt(item.amount));
                     }, 0).toFixed(0);
                 });
 
+                // Update getMemberTotal to respect filter
                 const getMemberTotal = (member) => {
-                    return expenses.value.filter(e => e.payer === member).reduce((sum, item) => {
+                    return filteredExpensesList.value.filter(e => e.payer === member).reduce((sum, item) => {
                         return sum + (item.currency === 'JPY' ? (item.amount * exchangeRate.value) : parseInt(item.amount));
                     }, 0).toFixed(0);
                 };
@@ -839,8 +885,6 @@
                     // Calculate Fee Logic: If Credit Card, multiply by 1.015
                     let finalAmount = parseFloat(expenseForm.value.amount);
                     if (expenseForm.value.paymentMethod === '信用卡') {
-                        // Only apply if it wasn't already applied? Simpler to just calc on save.
-                        // Assuming user enters RAW price.
                         finalAmount = finalAmount * 1.015;
                     }
 
@@ -889,7 +933,7 @@
                             shoppingList.value[idx] = payload;
                         }
                     } else {
-                        shoppingList.value.push({ ...payload, done: false });
+                        shoppingList.value.unshift({ ...payload, done: false }); // Add to top
                     }
                     saveData();
                     cancelShoppingEdit();
@@ -927,8 +971,9 @@
                 return {
                     members, selectedTab, selectedDateIndex, dates, itinerary, expenses, todoList, shoppingList,
                     newTodoText, newShoppingItem, modalForm, expenseForm, showShoppingModal, showEditModal, exchangeRate, exchangeRateDate,
-                    currentDateDisplay, currentDayItinerary, expenseGroups, totalExpenseTWD, currentMapLocation, currentMapUrl,
+                    currentDateDisplay, currentDayItinerary, expenseGroups: filteredExpenseGroups, totalExpenseTWD: filteredExpenseTotalTWD, currentMapLocation, currentMapUrl,
                     shoppingFilterOwner, filteredShoppingList, currentFilteredShoppingTotalJPY, currentFilteredShoppingTotalTWD,
+                    expenseFilterDate, filteredExpensesList, filteredExpenseGroups, filteredExpenseTotalTWD,
                     selectDate, openAddModal, closeEditModal, editItem, saveItineraryItem, deleteItem,
                     saveExpense, editExpense, deleteExpense, addTodo, removeTodo, isEditingExpense,
                     addOrUpdateShoppingItem, editShoppingItem, cancelShoppingEdit, removeShoppingItem, editingShoppingId,
