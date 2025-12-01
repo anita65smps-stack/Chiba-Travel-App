@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>千葉之旅 Chiba Pro V8 (自動排序版)</title>
+    <title>千葉之旅 Chiba Pro </title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- SortableJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts (Noto Sans TC) -->
@@ -83,10 +85,10 @@
 
     <div id="app" class="flex flex-col h-full relative max-w-md mx-auto w-full bg-white shadow-2xl overflow-hidden">
         
-        <!-- Loading Screen -->
+        <!-- Loading Screen (While Firebase Initializes) -->
         <div v-if="!isDataReady" class="absolute inset-0 bg-white/90 backdrop-blur-sm z-[99] flex flex-col items-center justify-center">
             <i class="fa-solid fa-spinner fa-spin-pulse text-primaryDark text-4xl mb-4"></i>
-            <p class="text-sm text-slate-600">正在同步雲端資料...</p>
+            <p class="text-sm text-slate-600">正在同步雲端資料，請稍候...</p>
             <p v-if="!isAuthReady" class="text-xs text-slate-400 mt-2">驗證身份中...</p>
         </div>
 
@@ -94,7 +96,7 @@
         <header class="bg-white pt-10 pb-2 px-5 z-20 shrink-0 shadow-sm">
             <div class="flex justify-between items-center mb-4">
                 <div>
-                    <h1 class="text-2xl font-bold tracking-tight text-slate-800">Chiba Trip <span class="text-primaryDark">v8</span></h1>
+                    <h1 class="text-2xl font-bold tracking-tight text-slate-800">Chiba Trip <span class="text-primaryDark">v10</span></h1>
                     <p class="text-xs text-slate-400 mt-0.5" v-if="selectedTab !== 'todo'">{{ currentDateDisplay }}</p>
                 </div>
                 <!-- Shopping Bag Button -->
@@ -137,7 +139,7 @@
                 <div class="bg-white rounded-3xl p-6 soft-shadow">
                     <h2 class="text-lg font-bold text-slate-700 mb-4 flex items-center">
                         <i class="fa-solid fa-list-check text-primaryDark mr-2"></i> 行前準備
-                    </h2>
+                    </h2 >
                     <div class="space-y-6">
                         <div v-for="(item, idx) in todoList" :key="idx" class="group border-b border-slate-50 pb-4 last:border-0">
                             <div class="flex items-center justify-between mb-2">
@@ -163,7 +165,7 @@
             <!-- 2. 行程表 -->
             <div v-if="selectedTab === 'schedule'" class="p-5">
                 <div v-if="currentDayItinerary.length === 0" class="text-center py-12 text-slate-400">
-                    <div class="text-4xl mb-3">📅</div>
+                    <div class="4xl mb-3">📅</div>
                     <p>本日無行程，請點擊 + 新增</p>
                 </div>
 
@@ -197,9 +199,14 @@
                                 </h3>
                                 
                                 <p v-if="item.note" class="text-sm text-slate-500 leading-relaxed whitespace-pre-line mb-2">{{ item.note }}</p>
+
+                                <!-- 🚀 立即導航按鈕 (已移至備註下方) -->
+                                <button @click.stop="startNavigation(item.location)" class="mt-2 text-xs bg-[#F0F4F7] text-[#5B7A8D] px-3 py-2 rounded-lg flex items-center font-bold hover:bg-[#E0E7EB] transition w-full justify-center">
+                                    <i class="fa-solid fa-location-arrow mr-2"></i> 立即導航
+                                </button>
                                 
                                 <!-- Actions -->
-                                <div class="flex justify-end space-x-3 mt-2 border-t border-slate-50 pt-2">
+                                <div class="flex justify-end space-x-3 mt-3 border-t border-slate-50 pt-2">
                                     <button @click.stop="editItem(item)" class="text-xs text-slate-400 hover:text-primaryDark font-medium"><i class="fa-regular fa-pen-to-square mr-1"></i>編輯</button>
                                     <button @click.stop="deleteItem(item.id)" class="text-xs text-slate-400 hover:text-red-400 font-medium"><i class="fa-regular fa-trash-can mr-1"></i>刪除</button>
                                 </div>
@@ -212,7 +219,9 @@
             <!-- 3. 地圖 -->
             <div v-if="selectedTab === 'map'" class="h-full flex flex-col relative">
                 <div class="h-3/5 w-full bg-slate-200 relative map-container">
+                    <!-- 嵌入 Google Maps 清單 - Dynamic Multi-point Search -->
                     <iframe :src="currentMapUrl" loading="lazy" allowfullscreen></iframe>
+                    
                     <div class="absolute bottom-4 right-4">
                          <button @click="locateMe" class="w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-slate-600 hover:text-primaryDark">
                             <i class="fa-solid fa-crosshairs"></i>
@@ -679,7 +688,7 @@
                 // Form/Input States
                 const newTodoText = ref('');
                 const newShoppingItem = ref({ text: '', price: '', owner: members[0], url: '', quantity: 1 });
-                const modalForm = ref({ id: null, time: '', location: '', type: '景點', url: '', note: '', weather: 'sunny', temp: 10 }); 
+                const modalForm = ref({ id: null, time: '', location: '', type: '景點', url: '', note: '' }); 
                 const expenseForm = ref({ date: dates[0].date, amount: '', title: '', currency: 'JPY', payer: members[0] });
                 
                 const myLocation = ref(null);
@@ -752,8 +761,6 @@
                     const cityNameKey = locationName.split(' ')[0];
                     const cityConfig = CITY_MAP[cityNameKey] || CITY_MAP['千葉'];
                     
-                    if (weatherCache[cityNameKey]) return weatherCache[cityNameKey];
-                    
                     const tempRange = { min: cityConfig.min, max: cityConfig.max };
                     const conditions = ['sunny', 'cloudy', 'rain'];
                     
@@ -762,7 +769,6 @@
                         condition: conditions[Math.floor(Math.random() * conditions.length)]
                     };
                     
-                    weatherCache[cityNameKey] = result;
                     return result;
                 };
 
@@ -846,7 +852,7 @@
 
                 const openAddModal = () => {
                     if (selectedTab.value === 'schedule') {
-                        modalForm.value = { id: null, time: '10:00', location: '', type: '景點', url: '', note: '', weather: 'sunny', temp: 10 };
+                        modalForm.value = { id: null, time: '10:00', location: '', type: '景點', url: '', note: '' };
                     } else if (selectedTab.value === 'wallet') {
                         expenseForm.value = { date: dates[selectedDateIndex.value].date, amount: '', title: '', currency: 'JPY', payer: members[0] };
                     }
@@ -856,20 +862,14 @@
                 const closeEditModal = () => showEditModal.value = false;
                 const editItem = (item) => {
                     modalForm.value = JSON.parse(JSON.stringify(item));
-                    if (typeof modalForm.value.weather === 'undefined') modalForm.value.weather = 'sunny';
-                    if (typeof modalForm.value.temp === 'undefined') modalForm.value.temp = 10;
                     showEditModal.value = true;
                 };
                 
                 const saveItineraryItem = async () => {
-                    const weatherData = await fetchWeatherForLocation(modalForm.value.location);
-                    
                     const itemToSave = { 
                         ...modalForm.value, 
                         date: dates[selectedDateIndex.value].date,
-                        weather: weatherData.condition,
-                        temp: weatherData.temp,
-                        transport: { method: '', cost: '', duration: '' } 
+                        // Removed weather and temp
                     };
 
                     if (itemToSave.id) {
@@ -929,15 +929,6 @@
 
                 // --- Utility Getters & Display ---
 
-                const getWeatherIcon = (w) => {
-                    const map = { 
-                        sunny: 'fa-solid fa-sun text-yellow-500', 
-                        cloudy: 'fa-solid fa-cloud text-slate-400', 
-                        rain: 'fa-solid fa-cloud-showers-heavy text-primaryDark' 
-                    };
-                    return map[w] || map.sunny;
-                };
-                
                 const getTypeIcon = (t) => {
                     const map = { '食物': '🍜', '購物': '🛍️', '景點': '📷', '住宿': '🏨' };
                     return map[t] || '📍';
@@ -961,6 +952,14 @@
                 };
 
                 onMounted(async () => { 
+                    // 檢查配置是否已填寫
+                    if (userId.value === 'CONFIG_MISSING') {
+                        isAuthReady.value = true;
+                        isDataReady.value = true;
+                        alert("錯誤：Firebase 配置遺失。請確認您已將 Config 物件貼入 index.html 的指定位置並提交變更。");
+                        return; 
+                    }
+
                     const firebaseData = await initializeFirebase();
                     userId.value = firebaseData.userId;
                     isAuthReady.value = true;
@@ -979,7 +978,7 @@
                     shoppingFilterOwner, filteredShoppingList, currentFilteredShoppingTotalJPY, currentFilteredShoppingTotalTWD,
                     selectDate, openAddModal, closeEditModal, editItem, saveItineraryItem, deleteItem,
                     saveExpense, deleteExpense, addTodo, removeTodo, addShoppingItem, removeShoppingItem,
-                    getWeatherIcon, getTypeIcon, getTypeClass, locateMe, updateMapLocation, 
+                    getTypeIcon, getTypeClass, locateMe, updateMapLocation, 
                     openGoogleMapsRoute, getMemberTotal,
                     // Firebase/App data for display
                     isAuthReady, isDataReady, userId, appId 
